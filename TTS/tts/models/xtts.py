@@ -160,8 +160,8 @@ class XttsArgs(Coqpit):
 
     # XTTS GPT Encoder params
     tokenizer_file: str = ""
-    gpt_max_audio_tokens: int = 605
-    gpt_max_text_tokens: int = 402
+    gpt_max_audio_tokens: int = 605  # Will be dynamically adjusted
+    gpt_max_text_tokens: int = 402   # Will be dynamically adjusted
     gpt_max_prompt_tokens: int = 70
     gpt_layers: int = 30
     gpt_n_model_channels: int = 1024
@@ -519,6 +519,28 @@ class Xtts(BaseTTS):
         **hf_generate_kwargs,
     ):
         language = language.split("-")[0]  # remove the country code
+
+        # Dynamic limit calculation based on text length
+        text_length = len(text)
+
+        # Estimate speaking rate: ~150-200 chars/minute for Hindi
+        # Conservative estimate: 180 chars/minute = 3 chars/second
+        estimated_duration_seconds = max(text_length / 3.0, 30)  # minimum 30 seconds
+
+        # Calculate required audio tokens (24000 Hz sample rate, 1024 stride)
+        required_audio_tokens = int((estimated_duration_seconds * 24000) / 1024)
+
+        # Set dynamic limits with safety caps
+        max_reasonable_audio_tokens = 5000  # ~3.5 minutes max per segment
+        self.args.gpt_max_audio_tokens = min(required_audio_tokens, max_reasonable_audio_tokens)
+
+        # Scale text tokens based on audio tokens (rough correlation)
+        self.args.gpt_max_text_tokens = min(800, max(400, self.args.gpt_max_audio_tokens // 3))
+
+        # Auto-enable text splitting for longer texts
+        if text_length > 1000:  # Enable splitting for texts > 1000 chars
+            enable_text_splitting = True
+
         length_scale = 1.0 / max(speed, 0.05)
         gpt_cond_latent = gpt_cond_latent.to(self.device)
         speaker_embedding = speaker_embedding.to(self.device)
@@ -535,7 +557,7 @@ class Xtts(BaseTTS):
 
             assert (
                 text_tokens.shape[-1] < self.args.gpt_max_text_tokens
-            ), " ❗ XTTS can only generate text with a maximum of 400 tokens."
+            ), " ❗ XTTS can only generate text with a maximum of tokens allowed by current settings."
 
             with torch.no_grad():
                 gpt_codes = self.gpt.generate(
@@ -643,7 +665,7 @@ class Xtts(BaseTTS):
 
             assert (
                 text_tokens.shape[-1] < self.args.gpt_max_text_tokens
-            ), " ❗ XTTS can only generate text with a maximum of 400 tokens."
+            ), " ❗ XTTS can only generate text with a maximum of tokens allowed by current settings."
 
             fake_inputs = self.gpt.compute_embeddings(
                 gpt_cond_latent.to(self.device),

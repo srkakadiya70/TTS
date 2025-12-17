@@ -530,22 +530,28 @@ class Xtts(BaseTTS):
         # Calculate required audio tokens (24000 Hz sample rate, 1024 stride)
         required_audio_tokens = int((estimated_duration_seconds * 24000) / 1024)
 
-        # Set dynamic limits with safety caps
-        max_reasonable_audio_tokens = 5000  # ~3.5 minutes max per segment
+        # Set dynamic limits with safety caps (conservative to avoid embedding errors)
+        max_reasonable_audio_tokens = 2000  # ~85 seconds max per segment (safe limit)
         self.args.gpt_max_audio_tokens = min(required_audio_tokens, max_reasonable_audio_tokens)
 
-        # Scale text tokens based on audio tokens (rough correlation)
-        self.args.gpt_max_text_tokens = min(800, max(400, self.args.gpt_max_audio_tokens // 3))
+        # Keep text tokens at original training limit - position embeddings have fixed size
+        # DON'T change gpt_max_text_tokens as it would exceed position embedding table size
+        # Instead, rely on text splitting to keep sequences within 402 tokens
 
-        # Auto-enable text splitting for longer texts
-        if text_length > 1000:  # Enable splitting for texts > 1000 chars
+        # Auto-enable text splitting for Hindi texts to stay within 402 token limit
+        # Hindi tokenization is denser than expected - be very conservative
+        # Even 935 chars produced >402 tokens, so split anything > 600 chars for Hindi
+        if text_length > 600 or (language == 'hi' and text_length > 300):
             enable_text_splitting = True
 
         length_scale = 1.0 / max(speed, 0.05)
         gpt_cond_latent = gpt_cond_latent.to(self.device)
         speaker_embedding = speaker_embedding.to(self.device)
         if enable_text_splitting:
-            text = split_sentence(text, language, self.tokenizer.char_limits[language])
+            # Use conservative character limit to stay within 402 token limit
+            # 402 tokens * ~3.5 chars/token ≈ 1400 chars max per segment
+            safe_char_limit = 400 if language == 'hi' else 1200
+            text = split_sentence(text, language, self.tokenizer.char_limits.get(language, safe_char_limit))
         else:
             text = [text]
 
@@ -557,7 +563,7 @@ class Xtts(BaseTTS):
 
             assert (
                 text_tokens.shape[-1] < self.args.gpt_max_text_tokens
-            ), " ❗ XTTS can only generate text with a maximum of tokens allowed by current settings."
+            ), " ❗ XTTS can only generate text with a maximum of 402 tokens."
 
             with torch.no_grad():
                 gpt_codes = self.gpt.generate(
@@ -655,7 +661,10 @@ class Xtts(BaseTTS):
         gpt_cond_latent = gpt_cond_latent.to(self.device)
         speaker_embedding = speaker_embedding.to(self.device)
         if enable_text_splitting:
-            text = split_sentence(text, language, self.tokenizer.char_limits[language])
+            # Use conservative character limit to stay within 402 token limit
+            # 402 tokens * ~3.5 chars/token ≈ 1400 chars max per segment
+            safe_char_limit = 400 if language == 'hi' else 1200
+            text = split_sentence(text, language, self.tokenizer.char_limits.get(language, safe_char_limit))
         else:
             text = [text]
 
@@ -665,7 +674,7 @@ class Xtts(BaseTTS):
 
             assert (
                 text_tokens.shape[-1] < self.args.gpt_max_text_tokens
-            ), " ❗ XTTS can only generate text with a maximum of tokens allowed by current settings."
+            ), " ❗ XTTS can only generate text with a maximum of 402 tokens."
 
             fake_inputs = self.gpt.compute_embeddings(
                 gpt_cond_latent.to(self.device),

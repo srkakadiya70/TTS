@@ -83,7 +83,7 @@ class Synthesizer(nn.Module):
         self.num_languages = 0
         self.tts_languages = {}
         self.d_vector_dim = 0
-        self.seg = self._get_segmenter("en")
+        self.seg = self._get_segmenter("en")  # Default to English, will be updated per language
         self.use_cuda = use_cuda
         self.voice_dir = voice_dir
         if self.use_cuda:
@@ -295,7 +295,27 @@ class Synthesizer(nn.Module):
             sens = [text]
             if split_sentences:
                 print(" > Text splitted to sentences.")
+                # Use language-specific segmenter for proper sentence splitting
+                lang_code = language_name.split("-")[0] if language_name else "en"
+                self.seg = self._get_segmenter(lang_code)
                 sens = self.split_into_sentences(text)
+
+                # Fallback: if segmenter doesn't split long text, do character-based splitting
+                # This handles cases where language segmenter fails (like Hindi)
+                max_chars_per_segment = 400 if lang_code == 'hi' else 1000
+                if len(sens) == 1 and len(text) > max_chars_per_segment:
+                    print(f" > Fallback: Splitting long text by characters ({max_chars_per_segment} chars max)")
+                    sens = []
+                    for i in range(0, len(text), max_chars_per_segment):
+                        chunk = text[i:i + max_chars_per_segment]
+                        # Try to break at sentence boundaries within the chunk
+                        if i + max_chars_per_segment < len(text):
+                            # Look for sentence end within last 50 chars of chunk
+                            last_period = chunk.rfind('।', -50)
+                            if last_period > len(chunk) // 2:  # Only if period is in latter half
+                                chunk = chunk[:last_period + 1]
+                        sens.append(chunk.strip())
+
             print(sens)
 
         # handle multi-speaker

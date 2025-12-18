@@ -480,7 +480,7 @@ def main():
                 style_wav=args.capacitron_style_wav,
                 style_text=args.capacitron_style_text,
                 reference_speaker_name=args.reference_speaker_idx,
-                split_sentences=getattr(args, 'split_sentences', True),
+                split_sentences=args.split_sentences,
             )
         elif vc_path is not None:
             wav = synthesizer.voice_conversion(

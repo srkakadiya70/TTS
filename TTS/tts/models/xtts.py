@@ -491,6 +491,7 @@ class Xtts(BaseTTS):
             gpt_cond_latent,
             speaker_embedding,
             temperature=temperature,
+            enable_text_splitting=enable_text_splitting,
             length_penalty=length_penalty,
             repetition_penalty=repetition_penalty,
             top_k=top_k,
@@ -515,7 +516,7 @@ class Xtts(BaseTTS):
         do_sample=True,
         num_beams=1,
         speed=1.0,
-        enable_text_splitting=False,
+        enable_text_splitting=None,  # None = auto-detect, True/False = override
         **hf_generate_kwargs,
     ):
         language = language.split("-")[0]  # remove the country code
@@ -538,20 +539,22 @@ class Xtts(BaseTTS):
         # DON'T change gpt_max_text_tokens as it would exceed position embedding table size
         # Instead, rely on text splitting to keep sequences within 402 tokens
 
-        # Auto-enable text splitting for Hindi texts to stay within 402 token limit
-        # Hindi tokenization is denser than expected - be very conservative
-        # Even 935 chars produced >402 tokens, so split anything > 600 chars for Hindi
-        if text_length > 600 or (language == 'hi' and text_length > 300):
-            enable_text_splitting = True
+        # Auto-enable text splitting based on tokenizer character limits
+        # This ensures we stay within the 402 token limit
+        if enable_text_splitting is None:  # Only auto-enable if not explicitly set
+            char_limit = self.tokenizer.char_limits.get(language, 1200)
+            if text_length > char_limit:
+                enable_text_splitting = True
+            else:
+                enable_text_splitting = False
 
         length_scale = 1.0 / max(speed, 0.05)
         gpt_cond_latent = gpt_cond_latent.to(self.device)
         speaker_embedding = speaker_embedding.to(self.device)
         if enable_text_splitting:
-            # Use conservative character limit to stay within 402 token limit
-            # 402 tokens * ~3.5 chars/token ≈ 1400 chars max per segment
-            safe_char_limit = 400 if language == 'hi' else 1200
-            text = split_sentence(text, language, self.tokenizer.char_limits.get(language, safe_char_limit))
+            # Use tokenizer's character limit to stay within token limits
+            safe_char_limit = self.tokenizer.char_limits.get(language, 1200)
+            text = split_sentence(text, language, safe_char_limit)
         else:
             text = [text]
 
@@ -653,7 +656,7 @@ class Xtts(BaseTTS):
         top_p=0.85,
         do_sample=True,
         speed=1.0,
-        enable_text_splitting=False,
+        enable_text_splitting=None,  # None = auto-detect, True/False = override
         **hf_generate_kwargs,
     ):
         language = language.split("-")[0]  # remove the country code
@@ -661,10 +664,9 @@ class Xtts(BaseTTS):
         gpt_cond_latent = gpt_cond_latent.to(self.device)
         speaker_embedding = speaker_embedding.to(self.device)
         if enable_text_splitting:
-            # Use conservative character limit to stay within 402 token limit
-            # 402 tokens * ~3.5 chars/token ≈ 1400 chars max per segment
-            safe_char_limit = 400 if language == 'hi' else 1200
-            text = split_sentence(text, language, self.tokenizer.char_limits.get(language, safe_char_limit))
+            # Use tokenizer's character limit to stay within token limits
+            safe_char_limit = self.tokenizer.char_limits.get(language, 1200)
+            text = split_sentence(text, language, safe_char_limit)
         else:
             text = [text]
 

@@ -293,6 +293,11 @@ class Synthesizer(nn.Module):
 
         if text:
             sens = [text]
+            # For XTTS models, control text splitting at model level too
+            if hasattr(self.tts_model, 'inference') and self.tts_config.model == "xtts":
+                if not split_sentences:
+                    kwargs['enable_text_splitting'] = False
+
             if split_sentences:
                 print(" > Text splitted to sentences.")
                 # Use language-specific segmenter for proper sentence splitting
@@ -302,7 +307,7 @@ class Synthesizer(nn.Module):
 
                 # Fallback: if segmenter doesn't split long text, do character-based splitting
                 # This handles cases where language segmenter fails (like Hindi)
-                max_chars_per_segment = 400 if lang_code == 'hi' else 1000
+                max_chars_per_segment = 1200 if lang_code == 'hi' else 1000
                 if len(sens) == 1 and len(text) > max_chars_per_segment:
                     print(f" > Fallback: Splitting long text by characters ({max_chars_per_segment} chars max)")
                     sens = []

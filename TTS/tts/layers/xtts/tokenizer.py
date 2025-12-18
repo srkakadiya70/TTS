@@ -620,21 +620,22 @@ class VoiceBpeTokenizer:
             self.tokenizer = Tokenizer.from_file(vocab_file)
         self.char_limits = {
             "en": 2500,
-            "de": 253,
-            "fr": 273,
-            "es": 239,
-            "it": 213,
-            "pt": 203,
-            "pl": 224,
-            "zh": 82,
-            "ar": 166,
-            "cs": 186,
-            "ru": 182,
-            "nl": 251,
-            "tr": 226,
-            "ja": 71,
-            "hu": 224,
-            "ko": 95,
+            "de": 1400,
+            "fr": 1400,
+            "es": 1400,
+            "it": 1400,
+            "pt": 1400,
+            "pl": 1400,
+            "zh": 800,
+            "ar": 1200,
+            "cs": 1400,
+            "ru": 1400,
+            "nl": 1400,
+            "tr": 1400,
+            "ja": 600,
+            "hu": 1400,
+            "ko": 800,
+            "hi": 1200,  # Hindi gets higher limit since it was previously restricted
         }
 
     @cached_property

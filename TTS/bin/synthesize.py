@@ -292,6 +292,12 @@ def main():
         help="If true shows a progress bar for the model download. Defaults to True",
         default=True,
     )
+    parser.add_argument(
+        "--split_sentences",
+        type=str2bool,
+        help="Split text into sentences for synthesis. Set to False for better coherence but uses more VRAM. Defaults to True",
+        default=True,
+    )
 
     # voice conversion args
     parser.add_argument(
@@ -474,6 +480,7 @@ def main():
                 style_wav=args.capacitron_style_wav,
                 style_text=args.capacitron_style_text,
                 reference_speaker_name=args.reference_speaker_idx,
+                split_sentences=getattr(args, 'split_sentences', True),
             )
         elif vc_path is not None:
             wav = synthesizer.voice_conversion(

@@ -229,6 +229,16 @@ _abbreviations = {
             # Korean doesn't typically use abbreviations in the same way as Latin-based scripts.
         ]
     ],
+    "hi": [
+        (re.compile("\\b%s\\." % x[0], re.IGNORECASE), x[1])
+        for x in [
+            ("डॉ", "डॉक्टर"),  # Doctor
+            ("श्री", "श्रीमान"),  # Mr.
+            ("सुश्री", "सुश्री"),  # Ms.
+            ("प्रो", "प्रोफेसर"),  # Professor
+            ("कु", "कुमारी"),  # Miss
+        ]
+    ],
 }
 
 
@@ -423,6 +433,19 @@ _symbols_multilingual = {
             ("$", " 달러 "),
             ("£", " 파운드 "),
             ("°", " 도 "),
+        ]
+    ],
+    "hi": [
+        # Hindi
+        (re.compile(r"%s" % re.escape(x[0]), re.IGNORECASE), x[1])
+        for x in [
+            ("&", " तथा "),
+            ("@", " पर "),
+            ("%", " प्रतिशत "),
+            ("#", " संख्या "),
+            ("$", " डॉलर "),
+            ("£", " पाउंड "),
+            ("°", " डिग्री "),
         ]
     ],
 }
@@ -628,7 +651,7 @@ class VoiceBpeTokenizer:
             )
 
     def preprocess_text(self, txt, lang):
-        if lang in {"ar", "cs", "de", "en", "es", "fr", "hu", "it", "nl", "pl", "pt", "ru", "tr", "zh", "ko"}:
+        if lang in {"ar", "cs", "de", "en", "es", "fr", "hi", "hu", "it", "nl", "pl", "pt", "ru", "tr", "zh", "ko"}:
             txt = multilingual_cleaners(txt, lang)
             if lang == "zh":
                 txt = chinese_transliterate(txt)
@@ -636,9 +659,6 @@ class VoiceBpeTokenizer:
                 txt = korean_transliterate(txt)
         elif lang == "ja":
             txt = japanese_cleaners(txt, self.katsu)
-        elif lang == "hi":
-            # @manmay will implement this
-            txt = basic_cleaners(txt)
         else:
             raise NotImplementedError(f"Language '{lang}' is not supported.")
         return txt
